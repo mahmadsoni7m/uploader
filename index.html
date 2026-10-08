@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="tg">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#0d1117">
+<title>GitHub Uploader</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#0d1117;color:#e6edf3;font:16px/1.5 system-ui,Arial,sans-serif;padding:16px 16px 90px}
+.w{max-width:560px;margin:0 auto}
+h1{font-size:20px;margin:6px 0 4px}
+.sub{color:#8b949e;font-size:14px;margin-bottom:14px}
+.card{background:#161b22;border:1px solid #30363d;border-radius:14px;padding:14px;margin-bottom:14px}
+h2{font-size:16px;margin:0 0 10px;color:#58a6ff}
+label{display:block;font-size:13px;color:#8b949e;margin:10px 0 4px}
+input[type=text],input[type=password],input[type=search],select{width:100%;background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:10px;padding:12px;font:inherit}
+input:focus,select:focus{outline:2px solid #1f6feb;border-color:#1f6feb}
+button{width:100%;margin-top:12px;background:#238636;color:#fff;border:0;border-radius:10px;padding:13px;font:600 16px system-ui;cursor:pointer}
+button.s{background:#21262d;color:#e6edf3;border:1px solid #30363d}
+button:disabled{opacity:.5}
+.chk{display:flex;gap:10px;align-items:center;color:#c9d1d9;font-size:15px;margin:10px 0 0}
+.chk input{width:20px;height:20px}
+.repo{display:flex;justify-content:space-between;gap:8px;align-items:center;width:100%;margin:0;border-radius:0;border:0;border-top:1px solid #30363d;background:transparent;color:#e6edf3;text-align:left;padding:12px 4px;font-weight:500}
+.repo.on{background:#1f6feb22;color:#58a6ff}
+.badge{font-size:11px;border:1px solid #30363d;border-radius:20px;padding:1px 8px;color:#8b949e}
+#repoList{max-height:300px;overflow:auto;margin-top:8px}
+.ok{color:#3fb950}.er{color:#f85149}.mu{color:#8b949e;font-size:14px}
+a{color:#58a6ff}
+.bar{height:10px;background:#21262d;border-radius:6px;overflow:hidden;margin-top:12px}.bar i{display:block;height:100%;width:0;background:#238636;transition:width .2s}
+.row{display:flex;gap:10px}.row>*{flex:1}
+.files{font-size:13px;color:#8b949e;margin-top:8px;word-break:break-all}
+.log{white-space:pre-wrap;font-size:14px;margin-top:10px}
+input[type=file]{width:100%;color:#c9d1d9;margin-top:4px}
+</style>
+</head>
+<body>
+<div class="w">
+<h1>GitHub Uploader</h1>
+<div class="sub">Репозиторий созед, интихоб кунед ва файл ё папкаро ба GitHub фиристед.</div>
+
+<div class="card" id="c1">
+  <h2>1. Token</h2>
+  <label>Token (ghp_... ё github_pat_...)</label>
+  <input id="token" type="password" autocapitalize="off" autocomplete="off">
+  <label class="chk"><input type="checkbox" id="remember"> Дар ҳамин телефон ёд дошта шавад</label>
+  <button id="connect" type="button">Пайвастшавӣ</button>
+  <div id="l1" class="log"></div>
+  <div class="mu" style="margin-top:10px">Барои сохтани репозиторий token-и <b>classic</b> бо ҳуқуқи <b>repo</b> лозим аст.
+  <a href="https://github.com/settings/tokens/new?scopes=repo&description=GitHub%20Uploader" target="_blank" rel="noopener">Сохтани token</a>.
+  Token-ро ба касе надиҳед.</div>
+</div>
+
+<div class="card" id="c2" hidden>
+  <h2>2. Репозиторий</h2>
+  <input id="search" type="search" placeholder="Ҷустуҷӯ…">
+  <div id="repoList"></div>
+  <button class="s" id="toggleNew" type="button">+ Репозиторийи нав</button>
+  <div id="newBox" hidden>
+    <label>Ном (бе фосила, масалан my-shop)</label>
+    <input id="nName" type="text" autocapitalize="off" autocomplete="off">
+    <label>Тавсиф (ихтиёрӣ)</label>
+    <input id="nDesc" type="text">
+    <label class="chk"><input type="checkbox" id="nPriv"> Шахсӣ (Private)</label>
+    <button id="nCreate" type="button">Сохтан</button>
+  </div>
+  <div id="l2" class="log"></div>
+</div>
+
+<div class="card" id="c3" hidden>
+  <h2>3. Фиристодан</h2>
+  <div class="mu" id="selRepo"></div>
+  <div class="row">
+    <div><label>Branch</label><input id="branch" type="text" autocapitalize="off"></div>
+    <div><label>Папкаи ҳадаф</label><input id="target" type="text" placeholder="холӣ = реша" autocapitalize="off"></div>
+  </div>
+  <label>Файлҳо (якчанд интихоб кардан мумкин)</label>
+  <input id="fFiles" type="file" multiple>
+  <label>Ё тамоми папка (дар компютер ва баъзе телефонҳо)</label>
+  <input id="fDir" type="file" webkitdirectory multiple>
+  <label class="chk"><input type="checkbox" id="strip" checked> Номи папкаи берунӣ нагузошта шавад</label>
+  <div class="files" id="fInfo"></div>
+  <label>Паём (commit)</label>
+  <input id="msg" type="text" value="Боргирӣ тавассути GitHub Uploader">
+  <button id="go" type="button">Фиристодан</button>
+  <div class="bar" id="bar" hidden><i id="barI"></i></div>
+  <div id="l3" class="log"></div>
+  <button class="s" id="pages" type="button">Фаъол кардани GitHub Pages (сайт)</button>
+  <div id="l4" class="log"></div>
+</div>
+</div>
+<script>
+(function () {
+  "use strict";
+  var $ = function (s) { return document.querySelector(s); };
+  var LS = "gh_uploader_token", API = "https://api.github.com";
+  var S = { token: "", user: "", repos: [], repo: null, picked: [] };
+
+  function say(id, msg, cls) { var el = $(id); el.className = "log " + (cls || ""); el.textContent = msg; }
+  function bytesFromBuf(buf) { var b = new Uint8Array(buf), s = "", n = 0x8000; for (var i = 0; i < b.length; i += n) s += String.fromCharCode.apply(null, b.subarray(i, i + n)); return btoa(s); }
+  function fmt(n) { return n < 1048576 ? Math.max(1, Math.round(n / 1024)) + " КБ" : (n / 1048576).toFixed(1) + " МБ"; }
+  async function api(method, path, body) {
+    var r = await fetch(API + path, {
+      method: method,
+      headers: { Authorization: "Bearer " + S.token, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" },
+      body: body ? JSON.stringify(body) : undefined
+    });
+    var j = null; try { j = await r.json(); } catch (e) { }
+    if (!r.ok) { var er = new Error((j && j.message) || ("HTTP " + r.status)); er.status = r.status; throw er; }
+    return j;
+  }
+  function explain(e) {
+    if (e.status === 401) return "Token нодуруст аст.";
+    if (e.status === 403) return "Ҳуқуқ нест ё маҳдудияти GitHub. (" + e.message + ")";
+    if (e.status === 404) return "Ёфт нашуд. Ҳуқуқи token-ро санҷед.";
+    if (e.status === 422) return "Қиматҳо нодурустанд ё ном аллакай ҳаст. (" + e.message + ")";
+    return e.message || String(e);
+  }
+
+  /* ---------- 1. Пайвастшавӣ ---------- */
+  try { var saved = localStorage.getItem(LS); if (saved) { $("#token").value = saved; $("#remember").checked = true; } } catch (e) { }
+  $("#connect").onclick = async function () {
+    S.token = $("#token").value.trim();
+    if (!S.token) return say("#l1", "Token-ро нависед.", "er");
+    this.disabled = true; say("#l1", "Пайваст мешавад…");
+    try {
+      var u = await api("GET", "/user");
+      S.user = u.login;
+      try { if ($("#remember").checked) localStorage.setItem(LS, S.token); else localStorage.removeItem(LS); } catch (e) { }
+      say("#l1", "Пайваст шуд: " + u.login + " ✓", "ok");
+      $("#c2").hidden = false;
+      await loadRepos();
+    } catch (e) { say("#l1", explain(e), "er"); }
+    this.disabled = false;
+  };
+
+  /* ---------- 2. Репозиторийҳо ---------- */
+  async function loadRepos() {
+    say("#l2", "Рӯйхат хонда мешавад…");
+    var all = [];
+    for (var p = 1; p <= 5; p++) {
+      var part = await api("GET", "/user/repos?per_page=100&sort=updated&page=" + p);
+      all = all.concat(part);
+      if (part.length < 100) break;
+    }
+    S.repos = all.filter(function (r) { return !r.permissions || r.permissions.push; });
+    say("#l2", S.repos.length ? "" : "Репозиторий нест. Якеро созед.");
+    renderRepos();
+  }
+  function renderRepos() {
+    var q = $("#search").value.trim().toLowerCase(), box = $("#repoList");
+    box.innerHTML = "";
+    S.repos.filter(function (r) { return r.full_name.toLowerCase().indexOf(q) >= 0; }).forEach(function (r) {
+      var b = document.createElement("button"); b.type = "button"; b.className = "repo" + (S.repo && S.repo.full_name === r.full_name ? " on" : "");
+      var n = document.createElement("span"); n.textContent = r.full_name;
+      var t = document.createElement("span"); t.className = "badge"; t.textContent = r.private ? "Private" : "Public";
+      b.appendChild(n); b.appendChild(t);
+      b.onclick = function () { selectRepo(r); };
+      box.appendChild(b);
+    });
+  }
+  $("#search").oninput = renderRepos;
+  function selectRepo(r) {
+    S.repo = r;
+    $("#c3").hidden = false;
+    $("#selRepo").textContent = "Интихоб шуд: " + r.full_name;
+    $("#branch").value = r.default_branch || "main";
+    $("#l3").textContent = ""; $("#l4").textContent = "";
+    renderRepos();
+    $("#c3").scrollIntoView({ behavior: "smooth" });
+  }
+  $("#toggleNew").onclick = function () { $("#newBox").hidden = !$("#newBox").hidden; };
+  $("#nCreate").onclick = async function () {
+    var name = $("#nName").value.trim();
+    if (!/^[A-Za-z0-9._-]+$/.test(name)) return say("#l2", "Ном танҳо ҳарфи лотинӣ, рақам, - _ . дошта бошад.", "er");
+    this.disabled = true; say("#l2", "Сохта мешавад…");
+    try {
+      var r = await api("POST", "/user/repos", { name: name, description: $("#nDesc").value.trim(), private: $("#nPriv").checked, auto_init: true });
+      S.repos.unshift(r); $("#newBox").hidden = true; $("#nName").value = "";
+      say("#l2", "Репозиторий сохта шуд ✓", "ok");
+      selectRepo(r);
+    } catch (e) { say("#l2", explain(e), "er"); }
+    this.disabled = false;
+  };
+
+  /* ---------- 3. Файлҳо ---------- */
+  function pick(input, fromDir) {
+    input.onchange = function () {
+      S.picked = Array.prototype.map.call(input.files, function (f) { return { file: f, dir: fromDir }; });
+      (fromDir ? $("#fFiles") : $("#fDir")).value = "";
+      showInfo();
+    };
+  }
+  pick($("#fFiles"), false); pick($("#fDir"), true);
+  $("#strip").onchange = showInfo; $("#target").oninput = showInfo;
+  function pathOf(it) {
+    var rel = it.file.webkitRelativePath || it.file.name;
+    if (it.dir && $("#strip").checked && rel.indexOf("/") > 0) rel = rel.split("/").slice(1).join("/");
+    var pre = $("#target").value.trim().replace(/^\/+|\/+$/g, "");
+    var full = (pre ? pre + "/" : "") + rel;
+    return full.split("/").filter(function (x) { return x && x !== "." && x !== ".."; }).join("/");
+  }
+  function showInfo() {
+    var n = S.picked.length;
+    if (!n) { $("#fInfo").textContent = ""; return; }
+    var total = S.picked.reduce(function (a, i) { return a + i.file.size; }, 0);
+    var names = S.picked.slice(0, 6).map(pathOf).join("\n");
+    $("#fInfo").textContent = n + " файл · " + fmt(total) + "\n" + names + (n > 6 ? "\n…" : "");
+    $("#fInfo").style.whiteSpace = "pre-wrap";
+  }
+  async function pool(items, n, fn) {
+    var i = 0;
+    await Promise.all(Array.from({ length: Math.min(n, items.length) }, async function () {
+      while (i < items.length) { var k = i++; await fn(items[k], k); }
+    }));
+  }
+  $("#go").onclick = async function () {
+    var btn = this;
+    if (!S.repo) return say("#l3", "Репозиторий интихоб кунед.", "er");
+    if (!S.picked.length) return say("#l3", "Файл ё папка интихоб кунед.", "er");
+    var repo = S.repo.full_name, br = $("#branch").value.trim() || "main", msg = $("#msg").value.trim() || "Боргирӣ";
+    var items = S.picked.map(function (it) { return { it: it, path: pathOf(it) }; }).filter(function (x) { return x.path; });
+    var big = items.filter(function (x) { return x.it.file.size > 90 * 1048576; });
+    if (big.length) return say("#l3", "Файл аз 90 МБ калон аст: " + big[0].path, "er");
+    btn.disabled = true; $("#bar").hidden = false; $("#barI").style.width = "0";
+    try {
+      say("#l3", "Омодагӣ…");
+      var ref;
+      try { ref = await api("GET", "/repos/" + repo + "/git/ref/heads/" + encodeURIComponent(br)); }
+      catch (e) {
+        if (e.status === 404 || e.status === 409) {
+          /* репозиторийи холӣ ё branch-и нав: аввал як файл тавассути contents */
+          say("#l3", "Branch аввал сохта мешавад…");
+          var first = items[0], buf0 = await first.it.file.arrayBuffer();
+          await api("PUT", "/repos/" + repo + "/contents/" + first.path.split("/").map(encodeURIComponent).join("/"), { message: msg, content: bytesFromBuf(buf0), branch: br });
+          ref = await api("GET", "/repos/" + repo + "/git/ref/heads/" + encodeURIComponent(br));
+        } else throw e;
+      }
+      var headSha = ref.object.sha;
+      var head = await api("GET", "/repos/" + repo + "/git/commits/" + headSha);
+      var done = 0, total = items.length, tree = new Array(total);
+      await pool(items, 4, async function (x, k) {
+        var buf = await x.it.file.arrayBuffer();
+        var bl = await api("POST", "/repos/" + repo + "/git/blobs", { content: bytesFromBuf(buf), encoding: "base64" });
+        tree[k] = { path: x.path, mode: "100644", type: "blob", sha: bl.sha };
+        done++; say("#l3", "Боргирӣ: " + done + " аз " + total);
+        $("#barI").style.width = Math.round(done / total * 90) + "%";
+      });
+      say("#l3", "Commit сохта мешавад…");
+      var nt = await api("POST", "/repos/" + repo + "/git/trees", { base_tree: head.tree.sha, tree: tree });
+      var cm = await api("POST", "/repos/" + repo + "/git/commits", { message: msg, tree: nt.sha, parents: [headSha] });
+      await api("PATCH", "/repos/" + repo + "/git/refs/heads/" + encodeURIComponent(br), { sha: cm.sha });
+      $("#barI").style.width = "100%";
+      var el = $("#l3"); el.className = "log ok"; el.textContent = "Тайёр ✓ " + total + " файл фиристода шуд.\n";
+      var a = document.createElement("a"); a.href = "https://github.com/" + repo + "/commit/" + cm.sha; a.target = "_blank"; a.rel = "noopener"; a.textContent = "Дидани commit"; el.appendChild(a);
+      S.picked = []; $("#fFiles").value = ""; $("#fDir").value = ""; showInfo();
+    } catch (e) { say("#l3", "Хато: " + explain(e), "er"); }
+    btn.disabled = false;
+  };
+
+  /* ---------- Pages ---------- */
+  $("#pages").onclick = async function () {
+    if (!S.repo) return say("#l4", "Репозиторий интихоб кунед.", "er");
+    var repo = S.repo.full_name, br = $("#branch").value.trim() || "main";
+    var url = "https://" + S.repo.owner.login + ".github.io/" + S.repo.name + "/";
+    this.disabled = true; say("#l4", "Фаъол мешавад…");
+    try {
+      await api("POST", "/repos/" + repo + "/pages", { source: { branch: br, path: "/" } });
+      say("#l4", "Pages фаъол шуд ✓ Баъд аз 1–2 дақиқа сайт дар ин суроға кушода мешавад:\n" + url, "ok");
+    } catch (e) {
+      if (e.status === 409) say("#l4", "Pages аллакай фаъол аст:\n" + url, "ok");
+      else say("#l4", explain(e) + (S.repo.private ? "\n(Репозиторийи Private барои Pages ҳисоби пулакӣ (Pro) мехоҳад.)" : ""), "er");
+    }
+    this.disabled = false;
+  };
+})();
+</script>
+</body>
+    </html>
+  
