@@ -75,9 +75,11 @@ input[type=file]{width:100%;color:#c9d1d9;margin-top:4px}
     <div><label>Branch</label><input id="branch" type="text" autocapitalize="off"></div>
     <div><label>Папкаи ҳадаф</label><input id="target" type="text" placeholder="холӣ = реша" autocapitalize="off"></div>
   </div>
-  <label>Файлҳо (якчанд интихоб кардан мумкин)</label>
+  <label>ZIP (беҳтарин роҳ барои тамоми папка дар телефон)</label>
+  <input id="fZip" type="file" accept=".zip,application/zip,application/x-zip-compressed">
+  <label>Ё файлҳо (якчанд интихоб кардан мумкин)</label>
   <input id="fFiles" type="file" multiple>
-  <label>Ё тамоми папка (дар компютер ва баъзе телефонҳо)</label>
+  <label>Ё тамоми папка (танҳо дар компютер)</label>
   <input id="fDir" type="file" webkitdirectory multiple>
   <label class="chk"><input type="checkbox" id="strip" checked> Номи папкаи берунӣ нагузошта шавад</label>
   <div class="files" id="fInfo"></div>
@@ -188,15 +190,61 @@ input[type=file]{width:100%;color:#c9d1d9;margin-top:4px}
   function pick(input, fromDir) {
     input.onchange = function () {
       S.picked = Array.prototype.map.call(input.files, function (f) { return { file: f, dir: fromDir }; });
-      (fromDir ? $("#fFiles") : $("#fDir")).value = "";
+      (fromDir ? $("#fFiles") : $("#fDir")).value = ""; $("#fZip").value = "";
       showInfo();
     };
   }
   pick($("#fFiles"), false); pick($("#fDir"), true);
+
+  /* ---------- ZIP-ро дар браузер кушодан (бе китобхонаи беруна) ---------- */
+  async function inflateRaw(u8) {
+    var ds = new DecompressionStream("deflate-raw");
+    return new Response(new Blob([u8]).stream().pipeThrough(ds)).arrayBuffer();
+  }
+  async function readZip(buf) {
+    var dv = new DataView(buf), u8 = new Uint8Array(buf), i, eocd = -1;
+    for (i = buf.byteLength - 22; i >= Math.max(0, buf.byteLength - 66000); i--) { if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; } }
+    if (eocd < 0) throw new Error("Ин файли ZIP нест ё вайрон аст.");
+    var count = dv.getUint16(eocd + 10, true), p = dv.getUint32(eocd + 16, true), out = [], dec = new TextDecoder("utf-8");
+    if (count === 0xFFFF || p === 0xFFFFFFFF) throw new Error("ZIP-и хеле калон (zip64) дастгирӣ намешавад.");
+    for (var k = 0; k < count; k++) {
+      if (dv.getUint32(p, true) !== 0x02014b50) throw new Error("Сохтори ZIP вайрон аст.");
+      var flags = dv.getUint16(p + 8, true), method = dv.getUint16(p + 10, true), csize = dv.getUint32(p + 20, true),
+          nlen = dv.getUint16(p + 28, true), elen = dv.getUint16(p + 30, true), clen = dv.getUint16(p + 32, true), loff = dv.getUint32(p + 42, true),
+          name = dec.decode(u8.subarray(p + 46, p + 46 + nlen));
+      p += 46 + nlen + elen + clen;
+      if (/\/$/.test(name) || /(^|\/)(__MACOSX|\.DS_Store)(\/|$)/.test(name)) continue;
+      if (flags & 1) throw new Error("ZIP бо парол дастгирӣ намешавад.");
+      var ds0 = loff + 30 + dv.getUint16(loff + 26, true) + dv.getUint16(loff + 28, true), raw = u8.subarray(ds0, ds0 + csize), data;
+      if (method === 0) data = raw.slice().buffer;
+      else if (method === 8) data = await inflateRaw(raw);
+      else throw new Error("Усули фишурдани ZIP дастгирӣ намешавад: " + name);
+      out.push({ path: name.replace(/^\/+/, ""), data: data });
+    }
+    return out;
+  }
+  $("#fZip").onchange = async function () {
+    var f = this.files[0]; if (!f) return;
+    try {
+      say("#l3", "ZIP кушода мешавад…");
+      var ents = await readZip(await f.arrayBuffer());
+      if (!ents.length) throw new Error("ZIP холӣ аст.");
+      var first = ents[0].path.split("/")[0];
+      var root = ents.every(function (e) { return e.path.indexOf("/") > 0 && e.path.split("/")[0] === first; }) ? first : "";
+      S.picked = ents.map(function (e) {
+        var nm = e.path.split("/").pop();
+        return { file: new File([e.data], nm), zipPath: e.path, zipRoot: root, dir: true };
+      });
+      $("#fFiles").value = ""; $("#fDir").value = "";
+      say("#l3", "");
+      showInfo();
+    } catch (e) { S.picked = []; showInfo(); say("#l3", "Хато: " + (e.message || e), "er"); }
+  };
   $("#strip").onchange = showInfo; $("#target").oninput = showInfo;
   function pathOf(it) {
-    var rel = it.file.webkitRelativePath || it.file.name;
-    if (it.dir && $("#strip").checked && rel.indexOf("/") > 0) rel = rel.split("/").slice(1).join("/");
+    var rel = it.zipPath || it.file.webkitRelativePath || it.file.name;
+    if (it.zipPath) { if ($("#strip").checked && it.zipRoot) rel = rel.slice(it.zipRoot.length + 1); }
+    else if (it.dir && $("#strip").checked && rel.indexOf("/") > 0) rel = rel.split("/").slice(1).join("/");
     var pre = $("#target").value.trim().replace(/^\/+|\/+$/g, "");
     var full = (pre ? pre + "/" : "") + rel;
     return full.split("/").filter(function (x) { return x && x !== "." && x !== ".."; }).join("/");
@@ -254,7 +302,7 @@ input[type=file]{width:100%;color:#c9d1d9;margin-top:4px}
       $("#barI").style.width = "100%";
       var el = $("#l3"); el.className = "log ok"; el.textContent = "Тайёр ✓ " + total + " файл фиристода шуд.\n";
       var a = document.createElement("a"); a.href = "https://github.com/" + repo + "/commit/" + cm.sha; a.target = "_blank"; a.rel = "noopener"; a.textContent = "Дидани commit"; el.appendChild(a);
-      S.picked = []; $("#fFiles").value = ""; $("#fDir").value = ""; showInfo();
+      S.picked = []; $("#fFiles").value = ""; $("#fDir").value = ""; $("#fZip").value = ""; showInfo();
     } catch (e) { say("#l3", "Хато: " + explain(e), "er"); }
     btn.disabled = false;
   };
@@ -277,5 +325,4 @@ input[type=file]{width:100%;color:#c9d1d9;margin-top:4px}
 })();
 </script>
 </body>
-    </html>
-  
+</html>
